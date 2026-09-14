@@ -53,9 +53,11 @@ of minutes before the streaming queries come up — watch it with `docker compos
 | Grafana        | http://localhost:3000 (admin / see `GRAFANA_USER`/`GRAFANA_PASSWORD`) |
 | Prometheus     | http://localhost:9090             |
 | Kafka UI       | http://localhost:8080             |
-| pgAdmin        | http://localhost:5050             |
+| pgAdmin        | http://localhost:5051             |
 | Spark UI       | http://localhost:4040             |
 | Postgres       | localhost:5432                    |
+
+Copy `.env.example` to `.env` before first run (`.env` itself is gitignored).
 
 ### API endpoints
 
@@ -86,5 +88,44 @@ producer/   Kafka event producer (Faker-generated e-commerce events)
 spark/      Spark Structured Streaming job (Kafka -> Postgres)
 api/        FastAPI analytics API (Postgres -> REST + /metrics)
 database/   Postgres schema (analytics.events + windowed aggregate tables)
-monitoring/ Prometheus scrape config + Grafana provisioning/dashboards
+monitoring/ Prometheus scrape config + Grafana provisioning/dashboards/alerting
 ```
+
+## Tests
+
+Each service has its own test suite under `<service>/tests/`, runnable independently with no
+external services required (Kafka/Postgres calls are mocked; Spark tests run a local `local[1]`
+SparkSession).
+
+```bash
+pip install -r producer/requirements-dev.txt && pytest producer/tests
+pip install -r api/requirements-dev.txt && pytest api/tests
+pip install -r spark/requirements-dev.txt && pytest spark/tests   # needs a JDK on PATH
+```
+
+Lint (ruff, config in `pyproject.toml`):
+
+```bash
+pip install ruff && ruff check producer/app api/app spark/app
+```
+
+## CI
+
+`.github/workflows/ci.yml` runs on every push/PR to `main`: lint, the three test suites in
+parallel jobs, and `docker compose config` to validate the compose file against `.env.example`.
+
+## Alerting
+
+Grafana is provisioned (`monitoring/grafana/provisioning/alerting/`) with two alert rules under
+the "Pipeline Alerts" folder:
+
+- **API is down** — Prometheus `up{job="api"} < 1` for 2+ minutes.
+- **No events ingested in the last 5 minutes** — queries `analytics.events` directly via the
+  PostgreSQL datasource; fires if the Spark pipeline stalls (Kafka, producer, or the streaming job
+  itself).
+
+Both route to a `pipeline-oncall` contact point (email). No SMTP server is configured in
+`docker-compose.yml`, so alerts won't actually send anywhere out of the box — the rules are fully
+functional and visible under Grafana's Alerting UI (state, history), but you'll want to either set
+`GF_SMTP_*` env vars on the `grafana` service or repoint the contact point at a Slack/webhook
+receiver to get real notifications.

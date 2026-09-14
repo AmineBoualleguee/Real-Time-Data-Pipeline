@@ -1,5 +1,3 @@
-import random
-
 from app.generator import EventGenerator
 from app.kafka_client import producer
 

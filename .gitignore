@@ -17,3 +17,7 @@ checkpoints/
 spark-warehouse/
 
 *.db
+
+.pytest_cache/
+
+.ruff_cache/
