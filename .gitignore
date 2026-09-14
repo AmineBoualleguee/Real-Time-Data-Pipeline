@@ -1,0 +1,17 @@
+.env
+
+__pycache__/
+
+*.pyc
+
+.idea/
+
+.vscode/
+
+logs/
+
+checkpoints/
+
+spark-warehouse/
+
+*.db
