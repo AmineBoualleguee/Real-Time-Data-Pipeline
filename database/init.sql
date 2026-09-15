@@ -76,3 +76,34 @@ CREATE TABLE IF NOT EXISTS analytics.event_type_counts (
 );
 
 CREATE INDEX IF NOT EXISTS idx_event_type_counts_window ON analytics.event_type_counts (window_start DESC);
+
+-- Deletes rows older than retention_days from every analytics table. Called on a schedule by
+-- the `retention` service (see docker-compose.yml / scripts/retention.sh) so the raw event log
+-- and windowed aggregates don't grow unbounded.
+CREATE OR REPLACE FUNCTION analytics.cleanup_old_data(retention_days INTEGER)
+RETURNS TABLE(table_name TEXT, deleted_rows BIGINT) AS $$
+DECLARE
+    deleted BIGINT;
+    cutoff TIMESTAMPTZ := now() - (retention_days || ' days')::interval;
+BEGIN
+    DELETE FROM analytics.events WHERE event_time < cutoff;
+    GET DIAGNOSTICS deleted = ROW_COUNT;
+    table_name := 'events'; deleted_rows := deleted; RETURN NEXT;
+
+    DELETE FROM analytics.sales_by_category WHERE window_start < cutoff;
+    GET DIAGNOSTICS deleted = ROW_COUNT;
+    table_name := 'sales_by_category'; deleted_rows := deleted; RETURN NEXT;
+
+    DELETE FROM analytics.sales_by_country WHERE window_start < cutoff;
+    GET DIAGNOSTICS deleted = ROW_COUNT;
+    table_name := 'sales_by_country'; deleted_rows := deleted; RETURN NEXT;
+
+    DELETE FROM analytics.device_stats WHERE window_start < cutoff;
+    GET DIAGNOSTICS deleted = ROW_COUNT;
+    table_name := 'device_stats'; deleted_rows := deleted; RETURN NEXT;
+
+    DELETE FROM analytics.event_type_counts WHERE window_start < cutoff;
+    GET DIAGNOSTICS deleted = ROW_COUNT;
+    table_name := 'event_type_counts'; deleted_rows := deleted; RETURN NEXT;
+END;
+$$ LANGUAGE plpgsql;

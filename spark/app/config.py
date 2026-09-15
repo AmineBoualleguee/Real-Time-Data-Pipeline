@@ -16,8 +16,6 @@ POSTGRES_DB = os.getenv("POSTGRES_DB", "analytics")
 POSTGRES_USER = os.getenv("POSTGRES_USER", "admin")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "admin123")
 
-JDBC_URL = f"jdbc:postgresql://{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}?stringtype=unspecified"
-
 CHECKPOINT_DIR = os.getenv("CHECKPOINT_DIR", "/tmp/checkpoints")
 WINDOW_DURATION = os.getenv("WINDOW_DURATION", "1 minute")
 WATERMARK_DELAY = os.getenv("WATERMARK_DELAY", "2 minutes")

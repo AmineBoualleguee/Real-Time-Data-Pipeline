@@ -3,16 +3,61 @@
   "uid": "realtime-pipeline-overview",
   "timezone": "utc",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "10s",
   "time": { "from": "now-1h", "to": "now" },
   "panels": [
     {
+      "id": 6,
+      "title": "Total Revenue (last hour)",
+      "type": "stat",
+      "datasource": { "type": "postgres", "uid": "postgres-analytics" },
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "unit": "currencyUSD", "decimals": 2 }
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COALESCE(SUM(total_revenue), 0) AS revenue FROM analytics.sales_by_category WHERE window_start >= now() - interval '1 hour'",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Orders (last hour)",
+      "type": "stat",
+      "datasource": { "type": "postgres", "uid": "postgres-analytics" },
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 0 },
+      "targets": [
+        {
+          "rawSql": "SELECT COALESCE(SUM(order_count), 0) AS orders FROM analytics.sales_by_category WHERE window_start >= now() - interval '1 hour'",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Events Ingested (last hour)",
+      "type": "stat",
+      "datasource": { "type": "postgres", "uid": "postgres-analytics" },
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 0 },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) AS events FROM analytics.events WHERE event_time >= now() - interval '1 hour'",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    },
+    {
       "id": 1,
       "title": "Revenue by Category (last hour)",
       "type": "barchart",
-      "datasource": { "type": "postgres", "uid": "PostgreSQL" },
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "postgres", "uid": "postgres-analytics" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 4 },
       "targets": [
         {
           "rawSql": "SELECT category, SUM(total_revenue) AS \"revenue\" FROM analytics.sales_by_category WHERE window_start >= now() - interval '1 hour' GROUP BY category ORDER BY revenue DESC",
@@ -25,8 +70,8 @@
       "id": 2,
       "title": "Revenue by Country (last hour)",
       "type": "barchart",
-      "datasource": { "type": "postgres", "uid": "PostgreSQL" },
-      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "postgres", "uid": "postgres-analytics" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 4 },
       "targets": [
         {
           "rawSql": "SELECT country, SUM(total_revenue) AS \"revenue\" FROM analytics.sales_by_country WHERE window_start >= now() - interval '1 hour' GROUP BY country ORDER BY revenue DESC",
@@ -36,11 +81,25 @@
       ]
     },
     {
+      "id": 9,
+      "title": "Revenue Over Time (5 min buckets)",
+      "type": "timeseries",
+      "datasource": { "type": "postgres", "uid": "postgres-analytics" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 13 },
+      "targets": [
+        {
+          "rawSql": "SELECT window_start AS \"time\", SUM(total_revenue) AS revenue FROM analytics.sales_by_category WHERE window_start >= now() - interval '6 hours' GROUP BY window_start ORDER BY window_start",
+          "format": "time_series",
+          "refId": "A"
+        }
+      ]
+    },
+    {
       "id": 3,
       "title": "Event Funnel (last hour)",
       "type": "table",
-      "datasource": { "type": "postgres", "uid": "PostgreSQL" },
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 9 },
+      "datasource": { "type": "postgres", "uid": "postgres-analytics" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 22 },
       "targets": [
         {
           "rawSql": "SELECT event_type, SUM(event_count) AS event_count FROM analytics.event_type_counts WHERE window_start >= now() - interval '1 hour' GROUP BY event_type ORDER BY event_count DESC",
@@ -53,8 +112,8 @@
       "id": 4,
       "title": "Events per Minute (raw stream)",
       "type": "timeseries",
-      "datasource": { "type": "postgres", "uid": "PostgreSQL" },
-      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 9 },
+      "datasource": { "type": "postgres", "uid": "postgres-analytics" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 22 },
       "targets": [
         {
           "rawSql": "SELECT date_trunc('minute', event_time) AS \"time\", COUNT(*) AS \"events\" FROM analytics.events WHERE event_time >= now() - interval '1 hour' GROUP BY 1 ORDER BY 1",
@@ -67,8 +126,8 @@
       "id": 5,
       "title": "API Request Rate",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 18 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 31 },
       "targets": [
         {
           "expr": "sum(rate(http_requests_total{job=\"api\"}[5m])) by (handler)",

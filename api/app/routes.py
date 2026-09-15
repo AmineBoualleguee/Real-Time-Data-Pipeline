@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.auth import require_api_key
 from app.database import get_db
 
 router = APIRouter()
@@ -13,7 +14,7 @@ def health(db: Session = Depends(get_db)):
     return {"status": "ok"}
 
 
-@router.get("/events/recent")
+@router.get("/events/recent", dependencies=[Depends(require_api_key)])
 def recent_events(
     limit: int = Query(50, ge=1, le=500),
     db: Session = Depends(get_db),
@@ -34,7 +35,7 @@ def recent_events(
     return {"count": len(rows), "events": [dict(r) for r in rows]}
 
 
-@router.get("/analytics/sales-by-category")
+@router.get("/analytics/sales-by-category", dependencies=[Depends(require_api_key)])
 def sales_by_category(
     minutes: int = Query(60, ge=1, le=1440),
     db: Session = Depends(get_db),
@@ -54,7 +55,7 @@ def sales_by_category(
     return {"count": len(rows), "windows": [dict(r) for r in rows]}
 
 
-@router.get("/analytics/sales-by-country")
+@router.get("/analytics/sales-by-country", dependencies=[Depends(require_api_key)])
 def sales_by_country(
     minutes: int = Query(60, ge=1, le=1440),
     db: Session = Depends(get_db),
@@ -74,7 +75,7 @@ def sales_by_country(
     return {"count": len(rows), "windows": [dict(r) for r in rows]}
 
 
-@router.get("/analytics/device-stats")
+@router.get("/analytics/device-stats", dependencies=[Depends(require_api_key)])
 def device_stats(
     minutes: int = Query(60, ge=1, le=1440),
     db: Session = Depends(get_db),
@@ -93,7 +94,7 @@ def device_stats(
     return {"count": len(rows), "windows": [dict(r) for r in rows]}
 
 
-@router.get("/analytics/event-funnel")
+@router.get("/analytics/event-funnel", dependencies=[Depends(require_api_key)])
 def event_funnel(
     minutes: int = Query(60, ge=1, le=1440),
     db: Session = Depends(get_db),
@@ -113,7 +114,7 @@ def event_funnel(
     return {"count": len(rows), "funnel": [dict(r) for r in rows]}
 
 
-@router.get("/analytics/summary")
+@router.get("/analytics/summary", dependencies=[Depends(require_api_key)])
 def summary(
     minutes: int = Query(60, ge=1, le=1440),
     db: Session = Depends(get_db),
