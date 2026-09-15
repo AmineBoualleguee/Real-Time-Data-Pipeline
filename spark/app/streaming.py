@@ -6,7 +6,6 @@ from pyspark.sql import SparkSession
 
 from app.config import (
     CHECKPOINT_DIR,
-    JDBC_URL,
     KAFKA_BOOTSTRAP,
     KAFKA_TOPICS,
     POSTGRES_DB,
@@ -61,11 +60,30 @@ def read_events(spark):
 
 
 def write_raw_events(batch_df, batch_id):
+    # Written via a single driver-side psycopg2 bulk insert rather than Spark's distributed
+    # JDBC writer: at this event volume (tens-hundreds of rows/batch) the JDBC writer's
+    # per-partition connection overhead made this query fall badly behind the other four,
+    # which all use this same pattern - observed drifting ~250 batches behind under sustained load.
     if batch_df.rdd.isEmpty():
         return
 
-    (
-        batch_df.select(
+    rows = [
+        (
+            r.event_id,
+            r.event_type,
+            r.customer_id,
+            r.session_id,
+            r.product_id,
+            r.category,
+            r.price,
+            r.quantity,
+            r.country,
+            r.device,
+            r.payment_method,
+            r.kafka_topic,
+            r.event_time,
+        )
+        for r in batch_df.select(
             "event_id",
             "event_type",
             "customer_id",
@@ -79,17 +97,27 @@ def write_raw_events(batch_df, batch_id):
             "payment_method",
             "kafka_topic",
             "event_time",
-        )
-        .write.format("jdbc")
-        .option("url", JDBC_URL)
-        .option("dbtable", "analytics.events")
-        .option("user", POSTGRES_USER)
-        .option("password", POSTGRES_PASSWORD)
-        .option("driver", "org.postgresql.Driver")
-        .mode("append")
-        .save()
-    )
-    logger.info("[events] batch %s written", batch_id)
+        ).collect()
+    ]
+
+    conn = _pg_connection()
+    try:
+        with conn.cursor() as cur:
+            execute_values(
+                cur,
+                """
+                INSERT INTO analytics.events
+                    (event_id, event_type, customer_id, session_id, product_id, category,
+                     price, quantity, country, device, payment_method, kafka_topic, event_time)
+                VALUES %s
+                ON CONFLICT (event_id) DO NOTHING
+                """,
+                rows,
+            )
+        conn.commit()
+        logger.info("[events] batch %s: inserted %s rows", batch_id, len(rows))
+    finally:
+        conn.close()
 
 
 def _upsert(rows, sql, batch_id, label):

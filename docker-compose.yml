@@ -102,8 +102,24 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      API_KEY: ${API_KEY}
     ports:
       - "${API_PORT}:8000"
+    depends_on:
+      - postgres
+
+  retention:
+    image: postgres:16
+    container_name: realtime-retention
+    restart: unless-stopped
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+      DATA_RETENTION_DAYS: ${DATA_RETENTION_DAYS}
+    entrypoint: ["/bin/sh", "/scripts/retention.sh"]
+    volumes:
+      - ./scripts/retention.sh:/scripts/retention.sh:ro
     depends_on:
       - postgres
 
@@ -129,6 +145,11 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      GF_SMTP_ENABLED: "true"
+      GF_SMTP_HOST: mailhog:1025
+      GF_SMTP_FROM_ADDRESS: alerts@pipeline.local
+      GF_SMTP_FROM_NAME: Realtime Pipeline
+      GF_SMTP_SKIP_VERIFY: "true"
     volumes:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
@@ -138,6 +159,15 @@ services:
     depends_on:
       - prometheus
       - postgres
+      - mailhog
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: realtime-mailhog
+    restart: unless-stopped
+    ports:
+      - "${MAILHOG_WEB_PORT}:8025"
+      - "1025:1025"
 
 volumes:
   postgres_data:

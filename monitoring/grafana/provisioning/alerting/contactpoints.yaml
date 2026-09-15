@@ -7,6 +7,6 @@ contactPoints:
       - uid: pipeline-oncall-email
         type: email
         settings:
-          addresses: oncall@example.com
+          addresses: oncall@pipeline.local
           singleEmail: true
         disableResolveMessage: false
